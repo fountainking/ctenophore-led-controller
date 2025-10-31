@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ctenophore v2.0 - Light Control</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff; min-height: 100vh; overflow-x: hidden;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; padding: 20px;
+            background: rgba(255, 255, 255, 0.05); border-radius: 20px;
+            backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .header h1 { font-size: 2.5rem;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; margin-bottom: 10px;
+            animation: shimmer 3s ease-in-out infinite; background-size: 300% 300%;
+        }
+        @keyframes shimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        .status-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .status-card { background: rgba(255, 255, 255, 0.08); border-radius: 15px; padding: 20px;
+            text-align: center; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s ease;
+        }
+        .status-card:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.2); }
+        .connection-status { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 500; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #2ed573; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .main-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; margin-bottom: 30px; }
+        .panel { background: rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); transition: all 0.3s ease;
+        }
+        .panel:hover { transform: translateY(-5px); border-color: rgba(255, 255, 255, 0.2); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+        .panel h3 { margin-bottom: 20px; font-size: 1.3rem; color: #4ecdc4; text-align: center; }
+        
+        /* Tempo Display */
+        .tempo-display { text-align: center; margin-bottom: 30px; }
+        .bpm-number { font-size: 4rem; font-weight: bold; color: #ff6b6b; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 107, 107, 0.5); }
+        .bpm-label { font-size: 1.2rem; color: #e2e8f0; margin-bottom: 20px; }
+        .metronome { width: 80px; height: 80px; margin: 0 auto 20px; border-radius: 50%;
+            background: linear-gradient(45deg, #4ecdc4, #45b7d1); display: flex; align-items: center;
+            justify-content: center; position: relative; overflow: hidden;
+        }
+        .metronome.beat { animation: beat 0.3s ease-out; }
+        @keyframes beat { 0% { transform: scale(1); } 50% { transform: scale(1.2); box-shadow: 0 0 30px rgba(78, 205, 196, 0.8); } 100% { transform: scale(1); } }
+        .metronome::after { content: '♪'; font-size: 2rem; color: white; }
+        
+        /* LED Display */
+        .led-display { display: flex; justify-content: space-between; margin-bottom: 25px; padding: 20px;
+            background: rgba(0, 0, 0, 0.3); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .led { width: 35px; height: 35px; border-radius: 50%; background: #333; border: 2px solid #555;
+            transition: all 0.3s ease; position: relative; overflow: hidden; cursor: pointer;
+        }
+        .led.active { box-shadow: 0 0 20px currentColor; }
+        .led:hover { transform: scale(1.1); border-color: #4ecdc4; }
+        
+        /* Color Palette Selector - FIXED RESPONSIVE */
+        .palette-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); 
+            gap: 12px; 
+            margin-bottom: 20px; 
+        }
+        .palette-card { 
+            background: rgba(255, 255, 255, 0.05); 
+            border-radius: 10px; 
+            padding: 12px;
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+            border: 2px solid transparent;
+            min-width: 0; /* Prevents overflow */
+            max-width: 100%; /* Ensures it fits */
+        }
+        .palette-card:hover { border-color: #4ecdc4; transform: translateY(-2px); }
+        .palette-card.active { border-color: #ff6b6b; background: rgba(255, 107, 107, 0.1); }
+        .palette-preview { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 8px; 
+            flex-wrap: wrap; /* Allow wrapping on very small screens */
+        }
+        .palette-color { 
+            width: 14px; 
+            height: 14px; 
+            border-radius: 50%; 
+            margin: 1px; 
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+        .palette-name { 
+            text-align: center; 
+            font-size: 0.85rem; 
+            color: #e2e8f0; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+        
+        /* Animation Pattern Selector */
+        .pattern-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .pattern-btn { background: rgba(255, 255, 255, 0.1); border: 2px solid transparent; border-radius: 10px;
+            padding: 12px; cursor: pointer; transition: all 0.3s ease; text-align: center; color: #e2e8f0;
+            font-size: 0.9rem; min-width: 0;
+        }
+        .pattern-btn:hover { border-color: #4ecdc4; background: rgba(78, 205, 196, 0.1); }
+        .pattern-btn.active { border-color: #ff6b6b; background: rgba(255, 107, 107, 0.1); color: #fff; }
+        
+        /* Controls */
+        .btn { background: linear-gradient(45deg, #667eea 0%, #764ba2 100%); color: white; border: none;
+            padding: 12px 24px; border-radius: 25px; cursor: pointer; font-size: 1rem; font-weight: 500;
+            transition: all 0.3s ease; margin: 5px; width: 100%;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); }
+        .btn.primary { background: linear-gradient(45deg, #ff6b6b, #4ecdc4); }
+        .btn.secondary { background: linear-gradient(45deg, #a8edea, #fed6e3); color: #333; }
+        .tap-btn { width: 120px; height: 120px; border-radius: 50%; font-size: 1.5rem; margin: 10px auto; display: flex; align-items: center; justify-content: center; }
+        .mode-indicator { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .mode-badge { padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 500;
+            border: 2px solid transparent; transition: all 0.3s ease;
+        }
+        .mode-badge.active { background: linear-gradient(45deg, #4ecdc4, #45b7d1); color: white; border-color: rgba(255, 255, 255, 0.3); }
+        .mode-badge.inactive { background: rgba(255, 255, 255, 0.1); color: #888; }
+        .battery-display { display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .battery-level { width: 60px; height: 25px; border: 2px solid #fff; border-radius: 8px; position: relative; overflow: hidden; }
+        .battery-fill { height: 100%; background: linear-gradient(90deg, #ff4757, #ffa502, #2ed573); transition: width 0.5s ease; }
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #e2e8f0; }
+        .slider { width: 100%; height: 8px; border-radius: 5px; background: rgba(255, 255, 255, 0.1); outline: none; -webkit-appearance: none; appearance: none; }
+        .slider::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #4ecdc4; cursor: pointer; border: 2px solid #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+        .value-display { text-align: center; margin-top: 8px; font-size: 0.9rem; color: #4ecdc4; font-weight: 500; }
+        .tilt-display { margin-bottom: 20px; }
+        .tilt-bar { width: 100%; height: 30px; background: rgba(255, 255, 255, 0.1); border-radius: 15px; position: relative; overflow: hidden; }
+        .tilt-indicator { width: 20px; height: 100%; background: linear-gradient(45deg, #4ecdc4, #45b7d1); border-radius: 10px;
+            position: absolute; top: 0; transition: left 0.3s ease; box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+        }
+        .toggle { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .toggle input[type="checkbox"] { width: 50px; height: 25px; appearance: none; background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px; position: relative; cursor: pointer; transition: all 0.3s ease;
+        }
+        .toggle input[type="checkbox"]:checked { background: #4ecdc4; }
+        .toggle input[type="checkbox"]::before { content: ''; width: 21px; height: 21px; border-radius: 50%;
+            background: white; position: absolute; top: 2px; left: 2px; transition: all 0.3s ease;
+        }
+        .toggle input[type="checkbox"]:checked::before { transform: translateX(25px); }
+        .color-picker { width: 50px; height: 50px; border: none; border-radius: 50%; cursor: pointer; margin: 5px; }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            .header h1 { font-size: 2rem; }
+            .bpm-number { font-size: 3rem; }
+            .panel { padding: 20px; }
+            .palette-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; }
+            .pattern-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+            .led { width: 30px; height: 30px; }
+        }
+        
+        @media (max-width: 480px) {
+            .palette-grid { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+            .palette-card { padding: 8px; }
+            .palette-color { width: 12px; height: 12px; }
+            .palette-name { font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌊 CTENOPHORE v2.0 🎨</h1>
+            <p>Advanced Light Control & Tempo System</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-card">
+                <div class="connection-status">
+                    <div class="status-dot" id="connectionDot"></div>
+                    <span id="connectionText">Connected</span>
+                </div>
+            </div>
+            <div class="status-card">
+                <div class="battery-display">
+                    <div class="battery-level">
+                        <div class="battery-fill" id="batteryFill" style="width: 75%"></div>
+                    </div>
+                    <span id="batteryText">75%</span>
+                </div>
+            </div>
+            <div class="status-card">
+                <div class="mode-indicator">
+                    <div class="mode-badge active" id="liquidMode">🌊 LIQUID</div>
+                    <div class="mode-badge inactive" id="tempoMode">🎵 TEMPO</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <h3>🎵 Tempo Control</h3>
+                
+                <div class="tempo-display">
+                    <div class="bpm-number" id="bpmDisplay">0</div>
+                    <div class="bpm-label">BPM</div>
+                    <div class="metronome" id="metronome"></div>
+                </div>
+
+                <button class="btn primary tap-btn" id="tapBtn">👆 TAP</button>
+                
+                <div class="control-group">
+                    <label>Manual BPM Override</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="bpmSlider" min="30" max="300" value="120">
+                        <div class="value-display" id="bpmSliderValue">120 BPM</div>
+                    </div>
+                </div>
+
+                <button class="btn secondary" id="resetBtn">🔄 Reset to Liquid</button>
+            </div>
+
+            <div class="panel">
+                <h3>🎨 Color Palettes</h3>
+                
+                <div class="palette-grid" id="paletteGrid">
+                    <!-- Palettes will be populated by JavaScript -->
+                </div>
+                
+                <div class="control-group">
+                    <label>🎨 Custom Palette Creator</label>
+                    <div style="display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap;">
+                        <input type="color" class="color-picker" id="color0" value="#FF0000" style="width: 35px; height: 35px; display: inline-block;">
+                        <input type="color" class="color-picker" id="color1" value="#FF7F00" style="width: 35px; height: 35px; display: inline-block;">
+                        <input type="color" class="color-picker" id="color2" value="#FFFF00" style="width: 35px; height: 35px; display: inline-block;">
+                        <input type="color" class="color-picker" id="color3" value="#00FF00" style="width: 35px; height: 35px; display: inline-block;">
+                        <input type="color" class="color-picker" id="color4" value="#0000FF" style="width: 35px; height: 35px; display: inline-block;">
+                        <input type="color" class="color-picker" id="color5" value="#4B0082" style="width: 35px; height: 35px; display: inline-block;">
+                        <input type="color" class="color-picker" id="color6" value="#9400D3" style="width: 35px; height: 35px; display: inline-block;">
+                    </div>
+                    <input type="text" id="customPaletteName" placeholder="Enter palette name..." 
+                           style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); 
+                                  background: rgba(255,255,255,0.05); color: white; margin-bottom: 10px;">
+                    <button class="btn secondary" id="createCustomPalette">✨ Create Custom Palette</button>
+                </div>
+                
+                <div class="toggle">
+                    <input type="checkbox" id="tiltPalettes">
+                    <label>Tilt-Based Palettes</label>
+                </div>
+                
+                <div class="toggle">
+                    <input type="checkbox" id="tempoColors">
+                    <label>Tempo-Reactive Colors</label>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>✨ Animation Patterns</h3>
+                
+                <div class="pattern-grid">
+                    <div class="pattern-btn active" data-pattern="rainbow">🌈 Rainbow</div>
+                    <div class="pattern-btn" data-pattern="breathing">💨 Breathing</div>
+                    <div class="pattern-btn" data-pattern="chase">🏃 Chase</div>
+                    <div class="pattern-btn" data-pattern="sparkle">✨ Sparkle</div>
+                    <div class="pattern-btn" data-pattern="strobe">⚡ Strobe</div>
+                    <div class="pattern-btn" data-pattern="fade">🌅 Fade</div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Animation Speed</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="animationSpeed" min="10" max="200" value="50">
+                        <div class="value-display" id="animationSpeedValue">Normal</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>💡 LED Control</h3>
+                
+                <div class="led-display" id="ledDisplay">
+                    <div class="led" data-led="0"></div>
+                    <div class="led" data-led="1"></div>
+                    <div class="led" data-led="2"></div>
+                    <div class="led" data-led="3"></div>
+                    <div class="led" data-led="4"></div>
+                    <div class="led" data-led="5"></div>
+                    <div class="led" data-led="6"></div>
+                </div>
+
+                <div class="toggle">
+                    <input type="checkbox" id="customLEDs">
+                    <label>Individual LED Control</label>
+                </div>
+                
+                <input type="color" class="color-picker" id="ledColorPicker" value="#ff6b6b" style="display: none;">
+
+                <div class="tilt-display">
+                    <label>Tilt Angle</label>
+                    <div class="tilt-bar">
+                        <div class="tilt-indicator" id="tiltIndicator"></div>
+                    </div>
+                    <div class="value-display" id="tiltValue">0.00</div>
+                </div>
+
+                <div class="control-group">
+                    <label>Motion Threshold</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="thresholdSlider" min="0.01" max="0.20" step="0.01" value="0.05">
+                        <div class="value-display" id="thresholdValue">0.05</div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Brightness</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="brightnessSlider" min="0.1" max="1.0" step="0.1" value="0.6">
+                        <div class="value-display" id="brightnessValue">60%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = {};
+        let selectedLED = -1;
+        
+        // Predefined palettes
+        const palettes = [
+            {name: "Rainbow", colors: ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"]},
+            {name: "Ocean", colors: ["#001F3F", "#0074D9", "#7FDBFF", "#39CCCC", "#2ECC40", "#01FF70", "#FFFFFF"]},
+            {name: "Fire", colors: ["#000000", "#8B0000", "#FF0000", "#FF4500", "#FF8C00", "#FFD700", "#FFFFFF"]},
+            {name: "Ctenophore", colors: ["#000033", "#000066", "#003366", "#0066CC", "#00CCFF", "#66FFFF", "#FFFFFF"]},
+            {name: "Sunset", colors: ["#2D1B69", "#11235A", "#1E3A8A", "#3B82F6", "#F59E0B", "#F97316", "#DC2626"]},
+            {name: "Cyberpunk", colors: ["#FF00FF", "#FF0080", "#FF0040", "#00FFFF", "#0080FF", "#0040FF", "#8000FF"]},
+            {name: "Peppermint", colors: ["#FF0000", "#FFFFFF", "#FF0000", "#FFFFFF", "#FF0000", "#FFFFFF", "#FF0000"]},
+            {name: "Patriotic", colors: ["#000080", "#B0C4DE", "#FF0000", "#FFA500", "#FFFF00", "#FFFFFF", "#FFFFFF"]}
+        ];
+        
+        // Initialize
+        updateUI();
+        startPolling();
+        initializePalettes();
+        setupEventListeners();
+        
+        function initializePalettes() {
+            const paletteGrid = document.getElementById('paletteGrid');
+            palettes.forEach((palette, index) => {
+                const paletteCard = document.createElement('div');
+                paletteCard.className = 'palette-card' + (index === 0 ? ' active' : '');
+                paletteCard.dataset.index = index;
+                
+                const preview = document.createElement('div');
+                preview.className = 'palette-preview';
+                palette.colors.forEach(color => {
+                    const colorDiv = document.createElement('div');
+                    colorDiv.className = 'palette-color';
+                    colorDiv.style.backgroundColor = color;
+                    preview.appendChild(colorDiv);
+                });
+                
+                const name = document.createElement('div');
+                name.className = 'palette-name';
+                name.textContent = palette.name;
+                
+                paletteCard.appendChild(preview);
+                paletteCard.appendChild(name);
+                paletteGrid.appendChild(paletteCard);
+                
+                paletteCard.addEventListener('click', () => selectPalette(index));
+            });
+        }
+        
+        function setupEventListeners() {
+            document.getElementById('tapBtn').addEventListener('click', () => sendCommand('tap'));
+            document.getElementById('resetBtn').addEventListener('click', () => sendCommand('reset'));
+            
+            document.getElementById('bpmSlider').addEventListener('input', (e) => {
+                const value = e.target.value;
+                document.getElementById('bpmSliderValue').textContent = value + ' BPM';
+                sendCommand('bpm=' + value);
+            });
+            
+            document.getElementById('thresholdSlider').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('thresholdValue').textContent = value.toFixed(2);
+                sendCommand('threshold=' + value);
+            });
+            
+            document.getElementById('brightnessSlider').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('brightnessValue').textContent = Math.round(value * 100) + '%';
+                sendCommand('brightness=' + value);
+            });
+            
+            document.getElementById('animationSpeed').addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                let speed = 'Normal';
+                if (value < 30) speed = 'Slow';
+                else if (value > 100) speed = 'Fast';
+                document.getElementById('animationSpeedValue').textContent = speed;
+                sendCommand('animationSpeed=' + value);
+            });
+            
+            document.getElementById('tiltPalettes').addEventListener('change', (e) => {
+                sendCommand('tiltPalettes=' + e.target.checked);
+            });
+            
+            document.getElementById('tempoColors').addEventListener('change', (e) => {
+                sendCommand('tempoColors=' + e.target.checked);
+            });
+            
+            document.getElementById('customLEDs').addEventListener('change', (e) => {
+                const colorPicker = document.getElementById('ledColorPicker');
+                colorPicker.style.display = e.target.checked ? 'block' : 'none';
+                sendCommand('customLEDs=' + e.target.checked);
+            });
+            
+            // Custom palette creator
+            document.getElementById('createCustomPalette').addEventListener('click', () => {
+                const name = document.getElementById('customPaletteName').value.trim();
+                if (!name) {
+                    alert('Please enter a palette name!');
+                    return;
+                }
+                
+                const colors = [];
+                for (let i = 0; i < 7; i++) {
+                    colors.push(document.getElementById(`color${i}`).value);
+                }
+                
+                // Add to palettes array
+                palettes.push({name: name, colors: colors});
+                
+                // Rebuild palette grid
+                document.getElementById('paletteGrid').innerHTML = '';
+                initializePalettes();
+                
+                // Send to ESP32
+                const paletteData = {
+                    name: name,
+                    colors: colors.map(c => c.replace('#', ''))
+                };
+                sendCommand('customPalette=' + JSON.stringify(paletteData));
+                
+                // Clear form
+                document.getElementById('customPaletteName').value = '';
+                
+                alert(`🎨 "${name}" palette created!`);
+            });
+            
+            // Pattern selection
+            document.querySelectorAll('.pattern-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    sendCommand('pattern=' + e.target.dataset.pattern);
+                });
+            });
+            
+            // LED individual control
+            document.querySelectorAll('.led').forEach((led, index) => {
+                led.addEventListener('click', () => {
+                    if (document.getElementById('customLEDs').checked) {
+                        selectedLED = index;
+                        document.getElementById('ledColorPicker').click();
+                    }
+                });
+            });
+            
+            document.getElementById('ledColorPicker').addEventListener('change', (e) => {
+                if (selectedLED >= 0) {
+                    const color = e.target.value;
+                    sendCommand('ledColor=' + selectedLED + ',' + color);
+                }
+            });
+        }
+        
+        function selectPalette(index) {
+            document.querySelectorAll('.palette-card').forEach(card => card.classList.remove('active'));
+            document.querySelector(`[data-index="${index}"]`).classList.add('active');
+            sendCommand('palette=' + index);
+        }
+
+        function sendCommand(command) {
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: command })
+            }).catch(err => console.error('Command failed:', err));
+        }
+
+        function startPolling() {
+            setInterval(() => {
+                fetch('/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        currentData = data;
+                        updateUI();
+                    })
+                    .catch(err => console.error('Status poll failed:', err));
+            }, 200);
+        }
+
+        function updateUI() {
+            if (!currentData) return;
+            
+            document.getElementById('bpmDisplay').textContent = currentData.bpm || 0;
+            
+            const battery = currentData.batteryPercent || 75;
+            document.getElementById('batteryFill').style.width = battery + '%';
+            document.getElementById('batteryText').textContent = battery + '%';
+            
+            const isLiquid = currentData.mode === 'liquid';
+            document.getElementById('liquidMode').className = 'mode-badge ' + (isLiquid ? 'active' : 'inactive');
+            document.getElementById('tempoMode').className = 'mode-badge ' + (isLiquid ? 'inactive' : 'active');
+            
+            const tilt = currentData.tilt || 0;
+            const tiltPercent = ((tilt + 1) / 2) * 100;
+            document.getElementById('tiltIndicator').style.left = Math.max(0, Math.min(80, tiltPercent - 10)) + '%';
+            document.getElementById('tiltValue').textContent = tilt.toFixed(2);
+            
+            const leds = document.querySelectorAll('.led');
+            const ledStates = currentData.leds || [];
+            leds.forEach((led, i) => {
+                if (ledStates[i] && ledStates[i] > 0.1) {
+                    led.style.background = 'hsl(' + (i * 51.4) + ', 70%, 60%)';
+                    led.classList.add('active');
+                } else {
+                    led.style.background = '#333';
+                    led.classList.remove('active');
+                }
+            });
+            
+            if (currentData.beat) {
+                const metronome = document.getElementById('metronome');
+                metronome.classList.add('beat');
+                setTimeout(() => metronome.classList.remove('beat'), 300);
+            }
+        }
+    </script>
+</body>
+</html>
