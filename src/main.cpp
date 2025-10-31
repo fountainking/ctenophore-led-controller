@@ -59,11 +59,11 @@ unsigned long tempoModeTimeout = 60000; // 60 seconds
 unsigned long lastTriggerTime = 0;
 
 // Tap detection - MORE SENSITIVE
-float tapThreshold = 0.6; // Much more sensitive - lowered from 1.2
+float tapThreshold = 0.4; // ULTRA sensitive - lowered from 0.6
 float baselineAccel = 1.0;
 float lastTotalAccel = 1.0;
 unsigned long lastTapTime = 0;
-unsigned long tapDebounce = 250;
+unsigned long tapDebounce = 200; // Reduced debounce for faster tap detection
 float tapHistory[5] = {1.0, 1.0, 1.0, 1.0, 1.0};
 
 // Liquid physics variables - Updated for 7 LEDs
@@ -1521,12 +1521,12 @@ void handleMovementTrigger() {
     Serial.print("🎵 Tempo trigger "); Serial.print(pressCount);
     
     startStrobe();
-    
-    // START GUESSING FROM 2ND TAP (was 3rd before)
-    if (pressCount >= 2) {
+
+    // START TEMPO PREDICTION ON 3RD TAP, adjust continuously after
+    if (pressCount >= 3) {
       calculateAndUpdateTempo(currentTime);
     } else {
-      Serial.println(" - Need more taps...");
+      Serial.println(" - Need one more tap for tempo prediction...");
     }
   }
 }
@@ -1676,77 +1676,76 @@ void triggerRotationSparkle() {
 void calculateAndUpdateTempo(unsigned long currentTime) {
   unsigned long avgInterval = 0;
   int intervalCount = 0;
-  
-  if (pressCount == 2) {
-    // First guess: use the single interval we have
-    avgInterval = pressHistory[1] - pressHistory[0];
-    intervalCount = 1;
-    Serial.println("🎯 First tempo guess from 2 taps!");
-    
-  } else if (pressCount == 3) {
-    // Better guess: average of first two intervals
+
+  // TAP 3: First prediction (use average of first 2 intervals)
+  if (pressCount == 3) {
     unsigned long interval1 = pressHistory[1] - pressHistory[0];
     unsigned long interval2 = pressHistory[2] - pressHistory[1];
     avgInterval = (interval1 + interval2) / 2;
     intervalCount = 2;
-    Serial.println("🎯 Improved tempo from 3 taps!");
-    
+    Serial.println("🎯 FIRST PREDICTION from 3 taps!");
+
+  // TAP 4+: Continuous adjustment with sliding window
   } else if (pressCount >= 4) {
-    // FIXED: Don't shift array until we have more than 4 taps
+    // Use last 4 taps for sliding window (better than just 3)
     if (pressCount == 4) {
-      // Use all 3 intervals with weighted average
+      // First time with 4 taps - use all 3 intervals
       unsigned long interval1 = pressHistory[1] - pressHistory[0];
-      unsigned long interval2 = pressHistory[2] - pressHistory[1]; 
+      unsigned long interval2 = pressHistory[2] - pressHistory[1];
       unsigned long interval3 = pressHistory[3] - pressHistory[2];
-      
-      // Weight recent intervals more heavily
-      avgInterval = (interval1 + interval2 * 2 + interval3 * 3) / 6;
+
+      // Weight recent intervals more heavily (exponential weighting)
+      avgInterval = (interval1 + interval2 * 2 + interval3 * 4) / 7;
       intervalCount = 3;
-      Serial.println("🎯 Refined tempo from 4 taps!");
-      
+      Serial.println("🎯 ADJUSTING tempo (tap 4)");
+
     } else {
-      // FIXED: Only shift when we have MORE than 4 taps
-      // Shift array to make room for new value
+      // TAP 5+: Shift window and continuously recalculate
+      // Shift array left to make room for new tap
       for(int i = 0; i < 3; i++) {
         pressHistory[i] = pressHistory[i + 1];
       }
       pressHistory[3] = currentTime;
-      pressCount = 4; // Keep count at 4 for sliding window
-      
+      pressCount = 4; // Keep at 4 for sliding window
+
+      // Recalculate with new sliding window
       unsigned long interval1 = pressHistory[1] - pressHistory[0];
-      unsigned long interval2 = pressHistory[2] - pressHistory[1]; 
+      unsigned long interval2 = pressHistory[2] - pressHistory[1];
       unsigned long interval3 = pressHistory[3] - pressHistory[2];
-      
-      avgInterval = (interval1 + interval2 * 2 + interval3 * 3) / 6;
+
+      // Exponential weighting: most recent tap has highest influence
+      avgInterval = (interval1 + interval2 * 2 + interval3 * 4) / 7;
       intervalCount = 3;
-      Serial.println("🔄 Tempo locked and tracking!");
+      Serial.println("🔄 CONTINUOUSLY ADJUSTING tempo!");
       tempoLocked = true;
     }
   }
-  
+
   // Update tempo values
   tempoInterval = avgInterval;
   bpm = 60000 / avgInterval;
-  
+
   // Clamp BPM to reasonable range
   if(bpm < 30) { bpm = 30; tempoInterval = 60000 / 30; }
   if(bpm > 300) { bpm = 300; tempoInterval = 60000 / 300; }
-  
-  Serial.print("BPM: "); Serial.print(bpm);
+
+  Serial.print("📊 BPM: "); Serial.print(bpm);
   Serial.print(" ("); Serial.print(tempoInterval); Serial.print("ms)");
-  Serial.print(" from "); Serial.print(intervalCount); Serial.println(" intervals");
-  
-  // CRITICAL FIX: Only set nextBeatTime on FIRST tempo detection
+  Serial.print(" | Window: "); Serial.print(intervalCount); Serial.println(" intervals");
+
+  // Only initialize beat timing on FIRST prediction (tap 3)
   if (!autoStrobing) {
     autoStrobing = true;
     nextBeatTime = currentTime + tempoInterval;
-    Serial.println("🎵 Starting drift-free beat timing!");
+    Serial.println("🎵 Starting beat sync!");
   } else {
-    Serial.println("🎵 Tempo updated - keeping sync!");
+    // For subsequent adjustments, smoothly transition without jarring the beat
+    // Don't reset nextBeatTime - let drift correction handle it
+    Serial.println("✨ Tempo adjusted dynamically!");
   }
-  
+
   lastTempoTime = currentTime;
-  
+
   // Update tempo-reactive colors
   if (tempoColorReactive) {
     temperatureShift = map(bpm, 30, 300, -1.0, 1.0);
