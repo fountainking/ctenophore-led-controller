@@ -1509,22 +1509,35 @@ void handleMovementTrigger() {
   }
   
   if (!liquidMode) {
+    // Continue adding taps and adjusting tempo (no reset!)
 
- if (autoStrobing) {
-      autoStrobing = false;
-      pressCount = 0;
+    // Safely store tap time based on current pressCount
+    if (pressCount < 4) {
+      pressHistory[pressCount] = currentTime;
+      pressCount++;
+    } else {
+      // Array is full - let calculateAndUpdateTempo handle shifting
+      pressCount++;  // Increment so tempo function knows there's a new tap
     }
 
-    pressCount++;
-    pressHistory[pressCount - 1] = currentTime;  // Store current tap time
-    
     Serial.print("🎵 Tempo trigger "); Serial.print(pressCount);
-    
-    startStrobe();
+
+    // Only trigger manual strobe on taps 1-2 (before tempo prediction starts)
+    // After tap 3, auto-beats handle the visuals
+    if (pressCount < 3) {
+      startStrobe();
+    }
 
     // START TEMPO PREDICTION ON 3RD TAP, adjust continuously after
     if (pressCount >= 3) {
       calculateAndUpdateTempo(currentTime);
+
+      // On tap 3+, manual taps should RESYNC the beat timing (not double-strobe)
+      if (autoStrobing) {
+        // Resync next beat to current tap
+        nextBeatTime = currentTime + tempoInterval;
+        Serial.println("⚡ Beat resynced to tap!");
+      }
     } else {
       Serial.println(" - Need one more tap for tempo prediction...");
     }
@@ -1736,8 +1749,13 @@ void calculateAndUpdateTempo(unsigned long currentTime) {
   // Only initialize beat timing on FIRST prediction (tap 3)
   if (!autoStrobing) {
     autoStrobing = true;
+
+    // CRITICAL: Trigger IMMEDIATE beat on tap 3 so user gets instant feedback
+    startStrobe();
+
+    // Set NEXT beat time (not immediate, but one interval ahead)
     nextBeatTime = currentTime + tempoInterval;
-    Serial.println("🎵 Starting beat sync!");
+    Serial.println("🎵 Beat sync started! First beat playing NOW!");
   } else {
     // For subsequent adjustments, smoothly transition without jarring the beat
     // Don't reset nextBeatTime - let drift correction handle it
