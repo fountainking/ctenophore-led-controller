@@ -1509,37 +1509,40 @@ void handleMovementTrigger() {
   }
   
   if (!liquidMode) {
-    // Continue adding taps and adjusting tempo (no reset!)
+    // TAP HANDLING: Every tap gets visual feedback + adjusts tempo
 
-    // Safely store tap time based on current pressCount
+    // Taps 1-4: Store directly in array
     if (pressCount < 4) {
       pressHistory[pressCount] = currentTime;
       pressCount++;
-    } else {
-      // Array is full - let calculateAndUpdateTempo handle shifting
-      pressCount++;  // Increment so tempo function knows there's a new tap
+      Serial.print("👟 Tap "); Serial.print(pressCount);
+    }
+    // Tap 5+: Shift array and store new tap
+    else {
+      // Shift left to make room
+      for(int i = 0; i < 3; i++) {
+        pressHistory[i] = pressHistory[i + 1];
+      }
+      pressHistory[3] = currentTime;
+      // Keep pressCount at 4 for sliding window
+      pressCount = 4;
+      Serial.print("👟 Tap (stride) ");
     }
 
-    Serial.print("🎵 Tempo trigger "); Serial.print(pressCount);
-
-    // Only trigger manual strobe on taps 1-2 (before tempo prediction starts)
-    // After tap 3, auto-beats handle the visuals
-    if (pressCount < 3) {
-      startStrobe();
-    }
+    // ALWAYS trigger visual feedback on every tap (for stride tracking)
+    startStrobe();
 
     // START TEMPO PREDICTION ON 3RD TAP, adjust continuously after
     if (pressCount >= 3) {
       calculateAndUpdateTempo(currentTime);
 
-      // On tap 3+, manual taps should RESYNC the beat timing (not double-strobe)
+      // RESYNC beat timing to manual tap (prevents drift, adjusts to tempo changes)
       if (autoStrobing) {
-        // Resync next beat to current tap
         nextBeatTime = currentTime + tempoInterval;
-        Serial.println("⚡ Beat resynced to tap!");
+        Serial.println("⚡ Stride synced!");
       }
     } else {
-      Serial.println(" - Need one more tap for tempo prediction...");
+      Serial.println(" - Tracking...");
     }
   }
 }
@@ -1696,42 +1699,20 @@ void calculateAndUpdateTempo(unsigned long currentTime) {
     unsigned long interval2 = pressHistory[2] - pressHistory[1];
     avgInterval = (interval1 + interval2) / 2;
     intervalCount = 2;
-    Serial.println("🎯 FIRST PREDICTION from 3 taps!");
+    Serial.println("🎯 FIRST PREDICTION!");
 
-  // TAP 4+: Continuous adjustment with sliding window
+  // TAP 4+: Continuous adjustment with sliding window (always uses last 4 taps)
   } else if (pressCount >= 4) {
-    // Use last 4 taps for sliding window (better than just 3)
-    if (pressCount == 4) {
-      // First time with 4 taps - use all 3 intervals
-      unsigned long interval1 = pressHistory[1] - pressHistory[0];
-      unsigned long interval2 = pressHistory[2] - pressHistory[1];
-      unsigned long interval3 = pressHistory[3] - pressHistory[2];
+    // Calculate intervals from the 4-tap sliding window
+    unsigned long interval1 = pressHistory[1] - pressHistory[0];
+    unsigned long interval2 = pressHistory[2] - pressHistory[1];
+    unsigned long interval3 = pressHistory[3] - pressHistory[2];
 
-      // Weight recent intervals more heavily (exponential weighting)
-      avgInterval = (interval1 + interval2 * 2 + interval3 * 4) / 7;
-      intervalCount = 3;
-      Serial.println("🎯 ADJUSTING tempo (tap 4)");
-
-    } else {
-      // TAP 5+: Shift window and continuously recalculate
-      // Shift array left to make room for new tap
-      for(int i = 0; i < 3; i++) {
-        pressHistory[i] = pressHistory[i + 1];
-      }
-      pressHistory[3] = currentTime;
-      pressCount = 4; // Keep at 4 for sliding window
-
-      // Recalculate with new sliding window
-      unsigned long interval1 = pressHistory[1] - pressHistory[0];
-      unsigned long interval2 = pressHistory[2] - pressHistory[1];
-      unsigned long interval3 = pressHistory[3] - pressHistory[2];
-
-      // Exponential weighting: most recent tap has highest influence
-      avgInterval = (interval1 + interval2 * 2 + interval3 * 4) / 7;
-      intervalCount = 3;
-      Serial.println("🔄 CONTINUOUSLY ADJUSTING tempo!");
-      tempoLocked = true;
-    }
+    // Exponential weighting: most recent tap has highest influence
+    avgInterval = (interval1 + interval2 * 2 + interval3 * 4) / 7;
+    intervalCount = 3;
+    tempoLocked = true;
+    Serial.println("🔄 TEMPO ADJUSTED!");
   }
 
   // Update tempo values
