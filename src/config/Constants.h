@@ -28,8 +28,8 @@ namespace MotionConfig {
 
 // Rotation/Gesture Detection
 namespace RotationConfig {
-  constexpr float TRIGGER_DEGREES = 180.0f;      // Degrees needed to trigger action
-  constexpr float RESET_DEGREES = 45.0f;         // Degrees below which rotation resets
+  constexpr float TRIGGER_DEGREES = 360.0f;      // Degrees needed to trigger action (full rotation + buffer)
+  constexpr float RESET_DEGREES = 90.0f;         // Degrees below which rotation resets
   constexpr unsigned long ROTATION_TIMEOUT_MS = 1000;   // Time before checking reset
   constexpr unsigned long FULL_RESET_MS = 5000;         // Time before full rotation reset
   constexpr float GYRO_THRESHOLD = 50.0f;        // Minimum gyro value to count as rotating (was 1.0 - WAY too sensitive!)
