@@ -7,18 +7,23 @@
 #include "../config/Constants.h"
 
 // Rotation detector for barrel rolls and spins
+// Uses POSITION-BASED detection: tracks if device completes a full 360° rotation
 class RotationDetector {
 private:
-  float cumulativeRotation;
+  float cumulativeRotation;      // Total rotation accumulated
+  float startingRotation;         // Rotation value when fast spin started
   unsigned long lastRotationTime;
-  bool hasTriggered;
+  bool isRotating;                // Currently in a fast rotation
+  bool hasTriggered;              // Already triggered this rotation
   std::function<void(bool)> onTrigger;  // Callback with direction (true = clockwise)
   const char* name;
 
 public:
   RotationDetector(const char* detectorName)
     : cumulativeRotation(0),
+      startingRotation(0),
       lastRotationTime(0),
+      isRotating(false),
       hasTriggered(false),
       name(detectorName) {}
 
@@ -28,40 +33,62 @@ public:
 
   // Update with gyro value
   void update(float gyroValue, unsigned long currentTime) {
-    // Accumulate rotation if spinning fast enough
-    if (abs(gyroValue) > RotationConfig::GYRO_THRESHOLD) {
+    bool isSpinning = abs(gyroValue) > RotationConfig::GYRO_THRESHOLD;
+
+    // START of rotation - note starting position
+    if (isSpinning && !isRotating) {
+      isRotating = true;
+      startingRotation = cumulativeRotation;
+      hasTriggered = false;
+      Serial.print("🌀 ");
+      Serial.print(name);
+      Serial.println(" rotation started!");
+    }
+
+    // Accumulate rotation while spinning
+    if (isSpinning) {
       cumulativeRotation += gyroValue * RotationConfig::GYRO_SCALE_FACTOR;
       lastRotationTime = currentTime;
+    }
 
-      // Check if rotation threshold reached
-      if (abs(cumulativeRotation) >= RotationConfig::TRIGGER_DEGREES) {
-        if (!hasTriggered) {
-          hasTriggered = true;
-          bool clockwise = cumulativeRotation > 0;
+    // Check if we've completed a full rotation (360°+) AND returned near start
+    if (isRotating && !hasTriggered) {
+      float rotationFromStart = abs(cumulativeRotation - startingRotation);
 
-          Serial.print("🌀 ");
-          Serial.print(name);
-          Serial.print(clockwise ? " (CW)" : " (CCW)");
-          Serial.println(" DETECTED!");
+      // Have we rotated at least 360°?
+      if (rotationFromStart >= RotationConfig::TRIGGER_DEGREES) {
+        hasTriggered = true;
+        bool clockwise = (cumulativeRotation - startingRotation) > 0;
 
-          if (onTrigger) {
-            onTrigger(clockwise);
-          }
+        Serial.print("✅ ");
+        Serial.print(name);
+        Serial.print(clockwise ? " (CW)" : " (CCW)");
+        Serial.print(" - ");
+        Serial.print(rotationFromStart);
+        Serial.println("° completed!");
 
-          cumulativeRotation = 0;  // Reset after trigger
+        if (onTrigger) {
+          onTrigger(clockwise);
         }
       }
     }
 
-    // Reset trigger if rotation drops below reset threshold
-    if (abs(cumulativeRotation) < RotationConfig::RESET_DEGREES ||
-        (currentTime - lastRotationTime > RotationConfig::ROTATION_TIMEOUT_MS)) {
-      hasTriggered = false;
+    // END of rotation - stopped spinning
+    if (!isSpinning && isRotating) {
+      if (currentTime - lastRotationTime > RotationConfig::ROTATION_TIMEOUT_MS) {
+        isRotating = false;
+        Serial.print("🛑 ");
+        Serial.print(name);
+        Serial.println(" rotation ended");
+      }
     }
 
     // Full reset if no rotation for extended period
     if (currentTime - lastRotationTime > RotationConfig::FULL_RESET_MS) {
       cumulativeRotation = 0;
+      startingRotation = 0;
+      isRotating = false;
+      hasTriggered = false;
     }
   }
 
