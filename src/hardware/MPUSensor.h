@@ -110,6 +110,14 @@ public:
     return abs(getAccelMagnitude() - lastMagnitude);
   }
 
+  // Getters for individual sensor values
+  float getAccelX() const { return accelX; }
+  float getAccelY() const { return accelY; }
+  float getAccelZ() const { return accelZ; }
+  float getGyroX() const { return gyroX; }
+  float getGyroZ() const { return gyroZ; }
+  float getTiltAngle() const { return tiltAngle; }
+
   // Check if rotating on X-axis (barrel roll detection)
   bool isRotatingX() const {
     return abs(gyroX) > RotationConfig::GYRO_THRESHOLD;

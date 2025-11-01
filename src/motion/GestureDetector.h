@@ -12,16 +12,19 @@ private:
   float cumulativeRotation;
   unsigned long lastRotationTime;
   bool hasTriggered;
-  std::function<void()> onTrigger;
+  std::function<void(bool)> onTrigger;  // Callback with direction (true = clockwise)
   const char* name;
 
 public:
-  RotationDetector(const char* detectorName, std::function<void()> callback)
+  RotationDetector(const char* detectorName)
     : cumulativeRotation(0),
       lastRotationTime(0),
       hasTriggered(false),
-      onTrigger(callback),
       name(detectorName) {}
+
+  void setCallback(std::function<void(bool)> callback) {
+    onTrigger = callback;
+  }
 
   // Update with gyro value
   void update(float gyroValue, unsigned long currentTime) {
@@ -34,14 +37,18 @@ public:
       if (abs(cumulativeRotation) >= RotationConfig::TRIGGER_DEGREES) {
         if (!hasTriggered) {
           hasTriggered = true;
+          bool clockwise = cumulativeRotation > 0;
 
           Serial.print("🌀 ");
           Serial.print(name);
+          Serial.print(clockwise ? " (CW)" : " (CCW)");
           Serial.println(" DETECTED!");
 
           if (onTrigger) {
-            onTrigger();
+            onTrigger(clockwise);
           }
+
+          cumulativeRotation = 0;  // Reset after trigger
         }
       }
     }
@@ -76,6 +83,7 @@ class GestureDetector {
 private:
   // Tap detection state
   float tapHistory[MotionConfig::TAP_HISTORY_SIZE];
+  float tapThreshold;
   unsigned long lastTapTime;
   std::function<void()> onTap;
 
@@ -85,45 +93,53 @@ private:
   unsigned long lastShakeTime;
   bool isMoving;
   bool isShaking;
+  std::function<void(bool)> onMotionChange;
 
   // Rotation detectors
-  RotationDetector* xRotationDetector;
-  RotationDetector* zRotationDetector;
+  RotationDetector xRotationDetector;
+  RotationDetector zRotationDetector;
 
 public:
   GestureDetector()
-    : lastTapTime(0),
+    : tapThreshold(MotionConfig::TAP_THRESHOLD),
+      lastTapTime(0),
       lastAccelMagnitude(1.0),
       lastMotionTime(0),
       lastShakeTime(0),
       isMoving(false),
       isShaking(false),
-      xRotationDetector(nullptr),
-      zRotationDetector(nullptr) {
+      xRotationDetector("Barrel Roll"),
+      zRotationDetector("Spin") {
     // Initialize tap history
     for (int i = 0; i < MotionConfig::TAP_HISTORY_SIZE; i++) {
       tapHistory[i] = 1.0;
     }
   }
 
-  // Set tap callback
-  void setTapCallback(std::function<void()> callback) {
+  // Set callbacks
+  void setOnTap(std::function<void()> callback) {
     onTap = callback;
   }
 
-  // Set rotation detectors
-  void setXRotationDetector(RotationDetector* detector) {
-    xRotationDetector = detector;
+  void setOnXRotation(std::function<void(bool)> callback) {
+    xRotationDetector.setCallback(callback);
   }
 
-  void setZRotationDetector(RotationDetector* detector) {
-    zRotationDetector = detector;
+  void setOnZRotation(std::function<void(bool)> callback) {
+    zRotationDetector.setCallback(callback);
+  }
+
+  void setOnMotionChange(std::function<void(bool)> callback) {
+    onMotionChange = callback;
+  }
+
+  // Set tap threshold dynamically
+  void setTapThreshold(float threshold) {
+    tapThreshold = threshold;
   }
 
   // Update gesture detection with latest sensor data
-  void update(MPUSensor& mpu) {
-    unsigned long currentTime = millis();
-
+  void update(MPUSensor& mpu, unsigned long currentTime) {
     // Update tap detection
     checkTap(mpu, currentTime);
 
@@ -131,12 +147,8 @@ public:
     checkMotion(mpu, currentTime);
 
     // Update rotation detection
-    if (xRotationDetector) {
-      xRotationDetector->update(mpu.gyroX, currentTime);
-    }
-    if (zRotationDetector) {
-      zRotationDetector->update(mpu.gyroZ, currentTime);
-    }
+    xRotationDetector.update(mpu.getGyroX(), currentTime);
+    zRotationDetector.update(mpu.getGyroZ(), currentTime);
   }
 
   // Check for tap gesture
@@ -159,7 +171,7 @@ public:
     // Detect spike above baseline
     float spikeAboveBaseline = totalAccel - avgAccel;
 
-    if (spikeAboveBaseline > MotionConfig::TAP_THRESHOLD &&
+    if (spikeAboveBaseline > tapThreshold &&
         (currentTime - lastTapTime) > MotionConfig::TAP_DEBOUNCE_MS) {
 
       Serial.print("👆 TAP! Spike: ");
@@ -180,12 +192,19 @@ public:
     float currentMagnitude = mpu.getAccelMagnitude();
     float motionDelta = abs(currentMagnitude - lastAccelMagnitude);
 
+    bool wasMoving = isMoving;
+
     // Motion detection
     if (motionDelta > MotionConfig::MOTION_THRESHOLD) {
       isMoving = true;
       lastMotionTime = currentTime;
     } else if (currentTime - lastMotionTime > MotionConfig::MOTION_TIMEOUT_MS) {
       isMoving = false;
+    }
+
+    // Trigger callback on motion state change
+    if (isMoving != wasMoving && onMotionChange) {
+      onMotionChange(isMoving);
     }
 
     // Shake detection (rapid motion changes)

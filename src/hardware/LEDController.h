@@ -8,18 +8,20 @@
 // Wrapper class for NeoPixel LED strip control
 class LEDController {
 private:
-  Adafruit_NeoPixel strip;
+  Adafruit_NeoPixel* strip;
   int numLeds;
+  float globalBrightness;
 
 public:
-  LEDController()
-    : strip(HardwareConfig::NUM_LEDS, HardwareConfig::LED_PIN, NEO_GRB + NEO_KHZ800),
-      numLeds(HardwareConfig::NUM_LEDS) {}
+  LEDController(Adafruit_NeoPixel* stripPtr)
+    : strip(stripPtr),
+      numLeds(HardwareConfig::NUM_LEDS),
+      globalBrightness(0.6f) {}
 
   // Initialize LED strip
   void begin() {
-    strip.begin();
-    strip.setBrightness(255);  // Full brightness (we control via color values)
+    strip->begin();
+    strip->setBrightness(255);  // Full brightness (we control via color values)
     clear();
     show();
     Serial.println("💡 LED strip initialized");
@@ -27,18 +29,27 @@ public:
 
   // Update LED display
   void show() {
-    strip.show();
+    strip->show();
+  }
+
+  // Set global brightness
+  void setBrightness(float brightness) {
+    globalBrightness = constrain(brightness, 0.0f, 1.0f);
+  }
+
+  float getBrightness() const {
+    return globalBrightness;
   }
 
   // Clear all LEDs
   void clear() {
-    strip.clear();
+    strip->clear();
   }
 
   // Set LED color using RGB (0-255 range)
   void setColorRGB(int led, uint8_t r, uint8_t g, uint8_t b) {
     if (led >= 0 && led < numLeds) {
-      strip.setPixelColor(led, strip.Color(r, g, b));
+      strip->setPixelColor(led, strip->Color(r, g, b));
     }
   }
 
@@ -78,30 +89,30 @@ public:
   // Set LED color using uint32_t packed color
   void setColor(int led, uint32_t color) {
     if (led >= 0 && led < numLeds) {
-      strip.setPixelColor(led, color);
+      strip->setPixelColor(led, color);
     }
   }
 
   // Get LED color
   uint32_t getColor(int led) const {
     if (led >= 0 && led < numLeds) {
-      return strip.getPixelColor(led);
+      return strip->getPixelColor(led);
     }
     return 0;
   }
 
   // Set all LEDs to same color
   void fill(uint32_t color) {
-    strip.fill(color);
+    strip->fill(color);
   }
 
   void fillRGB(uint8_t r, uint8_t g, uint8_t b) {
-    fill(strip.Color(r, g, b));
+    fill(strip->Color(r, g, b));
   }
 
   // Set brightness multiplier (0-255)
   void setBrightness(uint8_t brightness) {
-    strip.setBrightness(brightness);
+    strip->setBrightness(brightness);
   }
 
   // Get number of LEDs

@@ -9,7 +9,7 @@
 #include "../config/Constants.h"
 
 // WiFi and web server management
-class WiFiServer {
+class CtenophoreWiFiServer {
 private:
   AsyncWebServer* server;
   const char* ssid;
@@ -19,13 +19,13 @@ private:
   const char* dashboardHTML;
 
 public:
-  WiFiServer(const char* ssidName, const char* pass, const char* htmlContent)
+  CtenophoreWiFiServer(const char* ssidName, const char* pass, const char* htmlContent)
     : server(new AsyncWebServer(WiFiConfig::SERVER_PORT)),
       ssid(ssidName),
       password(pass),
       dashboardHTML(htmlContent) {}
 
-  ~WiFiServer() {
+  ~CtenophoreWiFiServer() {
     delete server;
   }
 
