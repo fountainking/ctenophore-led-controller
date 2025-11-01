@@ -32,7 +32,7 @@ namespace RotationConfig {
   constexpr float RESET_DEGREES = 45.0f;         // Degrees below which rotation resets
   constexpr unsigned long ROTATION_TIMEOUT_MS = 1000;   // Time before checking reset
   constexpr unsigned long FULL_RESET_MS = 5000;         // Time before full rotation reset
-  constexpr float GYRO_THRESHOLD = 1.0f;         // Minimum gyro value to count as rotating
+  constexpr float GYRO_THRESHOLD = 50.0f;        // Minimum gyro value to count as rotating (was 1.0 - WAY too sensitive!)
   constexpr float GYRO_SCALE_FACTOR = 0.01f;     // Gyro to degrees conversion
 }
 
