@@ -190,7 +190,7 @@ void loop() {
       animations.render(mpu.getTiltAngle());
 
       // Auto-return to liquid after timeout
-      if (mode.getTimeInMode() > TempoConfig::MODE_TIMEOUT_MS) {
+      if (mode.getTimeInMode() > TempoConfig::TEMPO_MODE_TIMEOUT_MS) {
         Serial.println("⏰ Tempo mode timeout - returning to liquid");
         stopTempo();
       }

@@ -196,10 +196,33 @@ public:
 
   // Getters
   int getCurrentPaletteIndex() const { return currentPaletteIndex; }
+  int getCurrentIndex() const { return currentPaletteIndex; }  // Alias for compatibility
   int getTotalPaletteCount() const {
     return PaletteConfig::PREDEFINED_PALETTE_COUNT + customPaletteCount;
   }
   int getCustomPaletteCount() const { return customPaletteCount; }
+
+  // Set palette by index
+  void setCurrentPalette(int index) {
+    int totalCount = PaletteConfig::PREDEFINED_PALETTE_COUNT + customPaletteCount;
+    if (index >= 0 && index < totalCount) {
+      currentPaletteIndex = index;
+      Serial.print("🎨 Palette set to: ");
+      Serial.println(index);
+    }
+  }
+
+  // Cycle with direction
+  void cycleNext(bool forward = true) {
+    int totalCount = PaletteConfig::PREDEFINED_PALETTE_COUNT + customPaletteCount;
+    if (forward) {
+      currentPaletteIndex = (currentPaletteIndex + 1) % totalCount;
+    } else {
+      currentPaletteIndex = (currentPaletteIndex + totalCount - 1) % totalCount;
+    }
+    Serial.print("🎨 Palette cycled: ");
+    Serial.println(getCurrentPalette()->name);
+  }
 };
 
 #endif // PALETTE_MANAGER_H

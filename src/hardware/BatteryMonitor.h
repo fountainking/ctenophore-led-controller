@@ -128,6 +128,27 @@ public:
     bar += "]";
     return bar;
   }
+
+  // Display battery level on LED strip
+  void displayOnLEDs(LEDController& leds) const {
+    // Light up LEDs proportional to battery percentage
+    int ledsToLight = (percentage * HardwareConfig::NUM_LEDS) / 100;
+
+    for (int i = 0; i < HardwareConfig::NUM_LEDS; i++) {
+      if (i < ledsToLight) {
+        // Green to yellow to red gradient
+        if (percentage > 60) {
+          leds.setColorRGB(i, 0, 255, 0);  // Green
+        } else if (percentage > 30) {
+          leds.setColorRGB(i, 255, 255, 0);  // Yellow
+        } else {
+          leds.setColorRGB(i, 255, 0, 0);  // Red
+        }
+      } else {
+        leds.setColorRGB(i, 0, 0, 0);  // Off
+      }
+    }
+  }
 };
 
 #endif // BATTERY_MONITOR_H

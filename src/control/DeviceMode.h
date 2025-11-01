@@ -124,6 +124,24 @@ public:
     Serial.print(getTimeSinceActivity() / 1000.0, 1);
     Serial.println("s");
   }
+
+  // === MISSING METHODS FOR MAIN.CPP ===
+
+  // Get current mode
+  DeviceMode getMode() const {
+    return currentMode;
+  }
+
+  // Update mode state (call every loop)
+  void update(unsigned long currentTime) {
+    // Placeholder for any periodic mode updates
+    // Can add timeout logic here if needed
+  }
+
+  // Transition back to previous mode
+  void transitionToPrevious() {
+    transitionTo(previousMode);
+  }
 };
 
 #endif // DEVICE_MODE_H

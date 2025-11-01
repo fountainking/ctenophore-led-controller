@@ -362,6 +362,41 @@ private:
 
     return ((uint32_t)rByte << 16) | ((uint32_t)gByte << 8) | bByte;
   }
+
+  // === ADDITIONAL PUBLIC METHODS ===
+public:
+  // Strobe control
+  bool strobing = false;
+  float wavePosition = 0;
+  unsigned long strobeInterval = 20;
+  unsigned long lastStrobeTime = 0;
+
+  void triggerStrobe() {
+    strobing = true;
+    wavePosition = 0;
+    lastStrobeTime = millis();
+    doRippleEffect(wavePosition);
+  }
+
+  void stopStrobe() {
+    strobing = false;
+  }
+
+  // Cycle pattern with direction
+  void cyclePattern(bool forward) {
+    if (forward) {
+      currentPattern = (AnimationPattern)(((int)currentPattern + 1) % 7);
+    } else {
+      currentPattern = (AnimationPattern)(((int)currentPattern + 6) % 7);
+    }
+    Serial.print("🎨 Animation cycled: ");
+    Serial.println((int)currentPattern);
+  }
+
+  // Get LED brightness for web dashboard
+  float getLEDBrightness(int led) const {
+    return getLevel(led);
+  }
 };
 
 #endif // ANIMATION_ENGINE_H
