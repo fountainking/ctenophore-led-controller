@@ -17,12 +17,12 @@ namespace MPUConfig {
 
 // Motion Detection Thresholds
 namespace MotionConfig {
-  constexpr float MOTION_THRESHOLD = 0.05f;      // General motion sensitivity
+  constexpr float MOTION_THRESHOLD = 0.05f;      // General motion sensitivity (ALSO used for tap detection in original!)
   constexpr float SHAKE_THRESHOLD = 0.05f;       // Shake detection sensitivity
-  constexpr float TAP_THRESHOLD = 0.4f;          // Tap detection sensitivity (ORIGINAL WORKING VALUE from backup)
+  constexpr float TAP_THRESHOLD = 0.05f;          // Tap detection - LOWERED to match motion threshold (original had dual detection)
   constexpr unsigned long MOTION_TIMEOUT_MS = 1500;   // Motion decay time
   constexpr unsigned long SHAKE_DEBOUNCE_MS = 200;    // Shake debounce
-  constexpr unsigned long TAP_DEBOUNCE_MS = 200;      // Tap debounce (ORIGINAL WORKING VALUE)
+  constexpr unsigned long TAP_DEBOUNCE_MS = 200;      // Tap debounce
   constexpr int TAP_HISTORY_SIZE = 5;            // Smoothing window for tap detection
 }
 

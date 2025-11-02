@@ -362,6 +362,13 @@ void setupGestures() {
 void handleTap() {
   unsigned long currentTime = millis();
 
+  // FIRST TAP: Switch from liquid to tempo mode
+  if (!mode.isInTempoMode()) {
+    Serial.println("🌊➡️🎵 TAP! Switching to tempo mode!");
+    mode.transitionTo(DeviceMode::TEMPO_DETECTING);
+    tempo.reset();  // Reset tempo detector on mode entry
+  }
+
   // Add tap to tempo detector
   tempo.addTap(currentTime);
 
@@ -375,11 +382,6 @@ void handleTap() {
 
   // Tap 3+: Start/adjust tempo
   if (tempo.hasEnoughTaps()) {
-    // Start tempo mode if not already active
-    if (!mode.isInTempoMode()) {
-      mode.transitionTo(DeviceMode::TEMPO_DETECTING);
-      Serial.println("🎵 Tempo mode activated!");
-    }
 
     // Get updated tempo
     unsigned long interval = tempo.getInterval();
